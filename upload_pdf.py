@@ -33,15 +33,24 @@ def embed_text(text: str):
     return res["embedding"]
 
 
-def embed_and_store(chunks, doc_id):
+def embed_and_store(chunks):
     for chunk in chunks:
         embedding = embed_text(chunk)
         supabase.table(TABLE_NAME).insert({
             "id": str(uuid.uuid4()),
-            "doc_id": doc_id,
             "content": chunk,
             "embedding": embedding
         }).execute()
+
+def clear_table():
+    rows = supabase.table(TABLE_NAME).select("id").execute().data
+    ids = [row["id"] for row in rows]
+    if ids:
+        supabase.table(TABLE_NAME).delete().in_("id", ids).execute()
+        print(f"🗑️ Cleared all rows from table '{TABLE_NAME}'.")
+    else:
+        print(f"ℹ️ Table '{TABLE_NAME}' is already empty.")
+
 
 def main():
     if not os.path.exists(PDF_FOLDER):
@@ -53,14 +62,15 @@ def main():
         print(f"❌ No PDF files found in '{PDF_FOLDER}'.")
         return
 
+    clear_table()
+
     for pdf_file in pdf_files:
         file_path = os.path.join(PDF_FOLDER, pdf_file)
         print(f"⏳ Processing: {pdf_file}")
         text = extract_text_from_pdf(file_path)
         chunks = chunk_text(text)
-        doc_id = str(uuid.uuid4())
-        embed_and_store(chunks, doc_id)
-        print(f"✅ Uploaded '{pdf_file}' with doc_id={doc_id}")
+        embed_and_store(chunks)
+        print(f"✅ Uploaded '{pdf_file}'")
 
     print("🎉 All PDFs uploaded successfully!")
 
